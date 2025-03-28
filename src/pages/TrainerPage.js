@@ -4,8 +4,7 @@ import {
   loadPianoSound,
   playDrone,
   playChord,
-  stopDrone,
-  stopChord
+  stopDrone
 } from '../audio/playAudio';
 
 import {
@@ -88,7 +87,6 @@ function TrainerPage() {
             <button onClick={handlePlayDrone}>Play Drone</button>
             <button onClick={handlePlayChord}>Play Chord</button>
             <button onClick={stopDrone}>Stop Drone</button>
-            <button onClick={stopChord}>Stop Chord</button>
           </div>
 
           {currentChord && (

@@ -3,7 +3,6 @@ import * as Tone from 'tone';
 let synth = null;
 let reverb = null;
 let droneNotes = new Set();
-let chordNotes = new Set();
 let bassNotes = new Set();
 
 export const loadPianoSound = async () => {
@@ -37,29 +36,30 @@ export const stopDrone = () => {
   }
 };
 
-// Chord
-export const playChord = (notes, direction = 'none', strumGap = 0) => {
-  stopChord();
+export const playChord = (notes, direction = 'none', strumGap = 0, durationMs = 2000) => {
+  const chordSynth = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { type: 'amsine', modulationType: 'triangle', harmonicity: 2 },
+    envelope: { attack: 0.005, decay: 0.4, sustain: 0.2, release: 2.0 }
+  }).toDestination();
 
   const arr = Array.isArray(notes) ? notes : [notes];
   const ordered = direction === 'up' ? [...arr].reverse() : arr;
+  const now = Tone.now();
 
   ordered.forEach((note, i) => {
-    const time = Tone.now() + i * (strumGap / 1000);
-    synth.triggerAttack(note, time);
-    chordNotes.add(note);
+    const time = now + i * (strumGap / 1000);
+    chordSynth.triggerAttack(note, time);
+    chordSynth.triggerRelease(note, time + durationMs / 1000);
   });
+
+  // Cleanup the synth after all notes have finished playing
+  setTimeout(() => {
+    chordSynth.dispose();
+  }, durationMs + ordered.length * strumGap);
 
   console.log(`[playChord] Triggered (${direction}):`, arr);
 };
 
-export const stopChord = () => {
-  if (chordNotes.size > 0) {
-    synth.triggerRelease(Array.from(chordNotes), Tone.now());
-    console.log('[stopChord] Released:', Array.from(chordNotes));
-    chordNotes.clear();
-  }
-};
 
 export const playBass = (note) => {
   stopBass();
@@ -77,7 +77,7 @@ export const stopBass = () => {
 };
 
 export const stopAll = () => {
-  stopChord();
   stopBass();
   stopDrone();
 };
+

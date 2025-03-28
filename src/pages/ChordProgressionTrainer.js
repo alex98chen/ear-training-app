@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   playChord,
-  stopChord,
   playBass,
   stopBass,
   stopAll,
@@ -33,43 +32,59 @@ function ChordProgressionTrainer() {
   const [strumGapMs, setStrumGapMs] = useState(30);
   const [isPlaying, setIsPlaying] = useState(false);
 
+    
   const playProgressionAtBpm = async (prog, bpm) => {
-    const tickMs = (60 / bpm / 2) * 1000;
-
+    const tickMs = (60 / bpm / 2) * 1000; // 8th note
+  
     setIsPlaying(true);
-
+  
     for (let i = 0; i < prog.length; i++) {
       const chord = prog[i];
-      stopChord();
-      stopBass();
-
+      stopBass(); // still need to manually stop bass
+  
       const chordNotes = chord.voicedNotes || chord.notes;
       const bassNote = includeBass ? `${chord.rootNote}1` : null;
-
+  
       const chordPattern = enableRhythm ? rhythmPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
-      const bassRhythm = enableRhythm ? bassPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
-
+      const bassPatternStr = enableRhythm ? bassPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
+  
       for (let step = 0; step < 8; step++) {
         const c = chordPattern[step];
-        const b = bassRhythm[step];
-
-        if (c === 'd') playChord(chordNotes, 'down', strumGapMs);
-        else if (c === 'u') playChord(chordNotes, 'up', strumGapMs);
-        else if (c === 'x') stopChord();
-
-        if (b === 'd' && bassNote) playBass(bassNote);
-        else if (b === 'x') stopBass();
-
+        const b = bassPatternStr[step];
+  
+  
+        // Trigger new chord
+        if (c === 'd' || c === 'u') {
+          const direction = c === 'd' ? 'down' : 'up';
+  
+          // Count how many dots follow this to know how long to ring
+          let sustain = 0;
+          for (let j = step + 1; j < 8; j++) {
+            if (chordPattern[j] === '.') sustain++;
+            else break;
+          }
+  
+          const durationMs = (1 + sustain) * tickMs;
+          playChord(chordNotes, direction, strumGapMs, durationMs);
+        }
+  
+        // Handle bass
+        if ((b === 'd' || b === 'u') && bassNote) {
+          playBass(bassNote, tickMs);
+        } else if (b === 'x') {
+          stopBass();
+        }
+  
         await new Promise(res => setTimeout(res, tickMs));
       }
-
-      stopChord();
-      stopBass();
+  
+      stopBass(); // explicitly stop bass between chords
     }
-
+  
     stopAll();
     setIsPlaying(false);
   };
+
 
   const handlePlayProgression = async () => {
     if (isPlaying) return;
