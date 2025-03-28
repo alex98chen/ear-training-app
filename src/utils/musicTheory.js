@@ -77,7 +77,9 @@ export const generateChordProgression = (key, length = 4) => {
 
     // Check if all scale notes are used
     const allUsed = Array.from(scaleNotes).every(n => usedNotes.has(n));
-    if (allUsed) return progression;
+    if (allUsed) {
+      return progression.sort(()=> Math.random() -0.5);
+    }
 
     attempts++;
   }
