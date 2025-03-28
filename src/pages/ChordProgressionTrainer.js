@@ -17,6 +17,7 @@ function ChordProgressionTrainer() {
   const [guesses, setGuesses] = useState(['', '', '', '']);
   const [feedback, setFeedback] = useState('');
   const [revealAnswer, setRevealAnswer] = useState(false);
+  const [includeBass, setIncludeBass] = useState(false); // ✅ NEW
 
   const playProgressionAtBpm = async (prog, bpm) => {
     const delayMs = (60 / bpm) * 1000;
@@ -24,7 +25,10 @@ function ChordProgressionTrainer() {
     for (let i = 0; i < prog.length; i++) {
       const chord = prog[i];
       stopChord();
-      playChord(chord.notes);
+
+      const bass = includeBass ? [`${chord.rootNote}2`] : [];
+      playChord([...bass, ...chord.notes]);
+
       await new Promise(res => setTimeout(res, delayMs));
     }
 
@@ -106,6 +110,17 @@ function ChordProgressionTrainer() {
           value={bpm}
           onChange={(e) => setBpm(parseInt(e.target.value, 10))}
         />
+      </div>
+
+      <div style={{ marginTop: '1em' }}>
+        <label>
+          <input
+            type="checkbox"
+            checked={includeBass}
+            onChange={(e) => setIncludeBass(e.target.checked)}
+          />
+          Include Bass Note
+        </label>
       </div>
 
       <div style={{ marginTop: '1.5em' }}>
