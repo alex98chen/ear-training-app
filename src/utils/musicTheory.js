@@ -58,18 +58,34 @@ export const getRandomInversion = (notes) => {
 
 export const generateChordProgression = (key, length = 4) => {
   const chords = getDiatonicChordsInKey(key);
+  const scaleNotes = new Set(chords.map(c => c.notes).flat().map(n => n.replace(/\d/, ''))); // all 7 pitch classes
 
-  const IChord = chords[0];
-  const otherChords = chords.slice(1);
+  let attempts = 0;
+  while (attempts < 1000) {
+    const progression = [];
 
-  const shuffled = [...otherChords].sort(() => Math.random() - 0.5);
-  const selected = shuffled.slice(0, length - 1);
+    // Always include at least one I chord
+    progression.push(chords[0]);
 
-  const insertIndex = Math.floor(Math.random() * length);
-  selected.splice(insertIndex, 0, IChord);
+    for (let i = 1; i < length; i++) {
+      const randomChord = chords[Math.floor(Math.random() * chords.length)];
+      progression.push(randomChord);
+    }
 
-  return selected;
+    // Collect all notes in this progression
+    const usedNotes = new Set(progression.flatMap(c => c.notes.map(n => n.replace(/\d/, ''))));
+
+    // Check if all scale notes are used
+    const allUsed = Array.from(scaleNotes).every(n => usedNotes.has(n));
+    if (allUsed) return progression;
+
+    attempts++;
+  }
+
+  console.warn("Couldn't generate progression using all notes after 1000 attempts.");
+  return chords.slice(0, length); // fallback
 };
+
 
 export const getGuitarVoicing = (notes) => {
   const voicingPatterns = [
