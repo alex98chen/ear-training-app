@@ -4,7 +4,10 @@ import {
   stopChord,
   loadPianoSound
 } from '../audio/playAudio';
-import { generateChordProgression } from '../utils/musicTheory';
+import {
+  generateChordProgression,
+  getInversionWithOctaves
+} from '../utils/musicTheory';
 import * as Tone from 'tone';
 
 const NOTES = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#'];
@@ -17,7 +20,9 @@ function ChordProgressionTrainer() {
   const [guesses, setGuesses] = useState(['', '', '', '']);
   const [feedback, setFeedback] = useState('');
   const [revealAnswer, setRevealAnswer] = useState(false);
-  const [includeBass, setIncludeBass] = useState(false); // ✅ NEW
+  const [includeBass, setIncludeBass] = useState(false);
+  const [useInversions, setUseInversions] = useState(false);
+  const [randomizeKey, setRandomizeKey] = useState(false);
 
   const playProgressionAtBpm = async (prog, bpm) => {
     const delayMs = (60 / bpm) * 1000;
@@ -27,8 +32,9 @@ function ChordProgressionTrainer() {
       stopChord();
 
       const bass = includeBass ? [`${chord.rootNote}2`] : [];
-      playChord([...bass, ...chord.notes]);
+      const notesToPlay = chord.invertedNotes || chord.notes;
 
+      playChord([...bass, ...notesToPlay]);
       await new Promise(res => setTimeout(res, delayMs));
     }
 
@@ -39,7 +45,22 @@ function ChordProgressionTrainer() {
     await Tone.start();
     await loadPianoSound();
 
-    const newProgression = generateChordProgression(key, 4);
+    const selectedKey = randomizeKey
+      ? NOTES[Math.floor(Math.random() * NOTES.length)]
+      : key;
+
+    setKey(selectedKey);
+
+    let newProgression = generateChordProgression(selectedKey, 4);
+
+    if (useInversions) {
+      newProgression = newProgression.map(chord => {
+        const inversion = Math.floor(Math.random() * 3);
+        const invertedNotes = getInversionWithOctaves(chord.notes, inversion);
+        return { ...chord, invertedNotes };
+      });
+    }
+
     setProgression(newProgression);
     setGuesses(['', '', '', '']);
     setFeedback('');
@@ -47,7 +68,8 @@ function ChordProgressionTrainer() {
 
     console.log('Chord Progression:');
     newProgression.forEach((chord, i) => {
-      console.log(`${i + 1}: ${chord.rootNote} ${chord.quality} - ${chord.notes.join(', ')}`);
+      const notes = chord.invertedNotes || chord.notes;
+      console.log(`${i + 1}: ${chord.rootNote} ${chord.quality} - ${notes.join(', ')}`);
     });
 
     await playProgressionAtBpm(newProgression, bpm);
@@ -99,6 +121,7 @@ function ChordProgressionTrainer() {
             <option key={note} value={note}>{note}</option>
           ))}
         </select>
+        <span style={{ marginLeft: '1em', fontStyle: 'italic' }}>Current Key: {key}</span>
       </div>
 
       <div style={{ marginTop: '1em' }}>
@@ -120,6 +143,28 @@ function ChordProgressionTrainer() {
             onChange={(e) => setIncludeBass(e.target.checked)}
           />
           Include Bass Note
+        </label>
+      </div>
+
+      <div style={{ marginTop: '1em' }}>
+        <label>
+          <input
+            type="checkbox"
+            checked={useInversions}
+            onChange={(e) => setUseInversions(e.target.checked)}
+          />
+          Use Inversions
+        </label>
+      </div>
+
+      <div style={{ marginTop: '1em' }}>
+        <label>
+          <input
+            type="checkbox"
+            checked={randomizeKey}
+            onChange={(e) => setRandomizeKey(e.target.checked)}
+          />
+          Randomize Key
         </label>
       </div>
 
