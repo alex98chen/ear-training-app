@@ -6,7 +6,8 @@ import {
 } from '../audio/playAudio';
 import {
   generateChordProgression,
-  getInversionWithOctaves
+  getInversionWithOctaves,
+  getGuitarVoicing
 } from '../utils/musicTheory';
 import * as Tone from 'tone';
 
@@ -21,21 +22,25 @@ function ChordProgressionTrainer() {
   const [feedback, setFeedback] = useState('');
   const [revealAnswer, setRevealAnswer] = useState(false);
   const [includeBass, setIncludeBass] = useState(false);
-  const [useInversions, setUseInversions] = useState(false);
   const [randomizeKey, setRandomizeKey] = useState(false);
+  const [voicingStyle, setVoicingStyle] = useState('triad');
 
   const playProgressionAtBpm = async (prog, bpm) => {
     const delayMs = (60 / bpm) * 1000;
 
+    stopChord(); // stop any lingering chord before starting
+
     for (let i = 0; i < prog.length; i++) {
       const chord = prog[i];
+
       stopChord();
 
-      const bass = includeBass ? [`${chord.rootNote}2`] : [];
-      const notesToPlay = chord.invertedNotes || chord.notes;
+      const bass = includeBass ? [`${chord.rootNote}1`] : [];
+      const notesToPlay = chord.voicedNotes || chord.notes;
 
       playChord([...bass, ...notesToPlay]);
       await new Promise(res => setTimeout(res, delayMs));
+      stopChord();
     }
 
     stopChord();
@@ -53,13 +58,16 @@ function ChordProgressionTrainer() {
 
     let newProgression = generateChordProgression(selectedKey, 4);
 
-    if (useInversions) {
-      newProgression = newProgression.map(chord => {
+    newProgression = newProgression.map(chord => {
+      let voicedNotes = chord.notes;
+      if (voicingStyle === 'inversion') {
         const inversion = Math.floor(Math.random() * 3);
-        const invertedNotes = getInversionWithOctaves(chord.notes, inversion);
-        return { ...chord, invertedNotes };
-      });
-    }
+        voicedNotes = getInversionWithOctaves(chord.notes, inversion);
+      } else if (voicingStyle === 'guitar') {
+        voicedNotes = getGuitarVoicing(chord.notes);
+      }
+      return { ...chord, voicedNotes };
+    });
 
     setProgression(newProgression);
     setGuesses(['', '', '', '']);
@@ -68,8 +76,7 @@ function ChordProgressionTrainer() {
 
     console.log('Chord Progression:');
     newProgression.forEach((chord, i) => {
-      const notes = chord.invertedNotes || chord.notes;
-      console.log(`${i + 1}: ${chord.rootNote} ${chord.quality} - ${notes.join(', ')}`);
+      console.log(`${i + 1}: ${chord.rootNote} ${chord.quality} - ${chord.voicedNotes.join(', ')}`);
     });
 
     await playProgressionAtBpm(newProgression, bpm);
@@ -137,12 +144,12 @@ function ChordProgressionTrainer() {
 
       <div style={{ marginTop: '1em' }}>
         <label>
-          <input
-            type="checkbox"
-            checked={includeBass}
-            onChange={(e) => setIncludeBass(e.target.checked)}
-          />
-          Include Bass Note
+          Voicing Style:
+          <select value={voicingStyle} onChange={(e) => setVoicingStyle(e.target.value)}>
+            <option value="triad">Triads</option>
+            <option value="inversion">Inversions</option>
+            <option value="guitar">Guitar Voicing</option>
+          </select>
         </label>
       </div>
 
@@ -150,10 +157,10 @@ function ChordProgressionTrainer() {
         <label>
           <input
             type="checkbox"
-            checked={useInversions}
-            onChange={(e) => setUseInversions(e.target.checked)}
+            checked={includeBass}
+            onChange={(e) => setIncludeBass(e.target.checked)}
           />
-          Use Inversions
+          Include Bass Note
         </label>
       </div>
 

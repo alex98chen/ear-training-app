@@ -1,3 +1,5 @@
+import * as Tone from 'tone';
+
 const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const MAJOR_SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11];
 
@@ -8,9 +10,9 @@ export const noteNameFromIndex = (index) => NOTES[index % 12];
 export const classifyTriad = (root, third, fifth) => {
   const t = (third - root + 12) % 12;
   const f = (fifth - root + 12) % 12;
-  if (t === 4 && f === 7) return 'maj';
-  if (t === 3 && f === 7) return 'min';
-  if (t === 3 && f === 6) return 'dim';
+  if (t === 4 && f === 7) return 'major';
+  if (t === 3 && f === 7) return 'minor';
+  if (t === 3 && f === 6) return 'diminished';
   return 'unknown';
 };
 
@@ -35,6 +37,7 @@ export const getDiatonicChordsInKey = (tonicNote) => {
     };
   });
 };
+
 export const getInversionWithOctaves = (notes, inversion) => {
   const reordered = [...notes.slice(inversion), ...notes.slice(0, inversion)];
 
@@ -42,7 +45,6 @@ export const getInversionWithOctaves = (notes, inversion) => {
     const pitch = parseInt(note.slice(-1), 10);
     const base = note.slice(0, -1);
 
-    // If it's one of the moved notes (now on top), raise it an octave
     const newOctave = i >= (3 - inversion) ? pitch + 1 : pitch;
 
     return `${base}${newOctave}`;
@@ -50,24 +52,78 @@ export const getInversionWithOctaves = (notes, inversion) => {
 };
 
 export const getRandomInversion = (notes) => {
-  const inversion = Math.floor(Math.random() * 3); // 0 = root, 1 = 1st, 2 = 2nd
+  const inversion = Math.floor(Math.random() * 3);
   return getInversionWithOctaves(notes, inversion);
 };
 
 export const generateChordProgression = (key, length = 4) => {
   const chords = getDiatonicChordsInKey(key);
 
-  // Always include the I chord (degreeIndex === 0)
   const IChord = chords[0];
-  const otherChords = chords.slice(1); // Exclude I
+  const otherChords = chords.slice(1);
 
-  // Pick (length - 1) random other chords
   const shuffled = [...otherChords].sort(() => Math.random() - 0.5);
   const selected = shuffled.slice(0, length - 1);
 
-  // Randomly insert the I chord somewhere in the result
   const insertIndex = Math.floor(Math.random() * length);
   selected.splice(insertIndex, 0, IChord);
 
   return selected;
+};
+
+export const getGuitarVoicing = (notes) => {
+  const voicingPatterns = [
+    ['1', '5', '1', '3', '5', '1'],
+    ['1', '3', '5', '1', '3'],
+    ['1', '5', '1', '3', '5'],
+    ['1', '5', '1', '3'],
+    ['1', '3', '5', '1', '5', '1']
+  ];
+
+  const pattern = voicingPatterns[Math.floor(Math.random() * voicingPatterns.length)];
+
+  const pitchClasses = {
+    '1': notes[0].slice(0, -1),
+    '3': notes[1].slice(0, -1),
+    '5': notes[2].slice(0, -1),
+  };
+
+  const minMidi = Tone.Frequency('E2').toMidi(); // 40
+  const maxMidi = Tone.Frequency('E6').toMidi(); // 88
+
+  const rootClass = pitchClasses['1'];
+
+  for (let base = minMidi; base <= Tone.Frequency('C4').toMidi(); base++) {
+    const baseNote = Tone.Frequency(base, 'midi').toNote();
+
+    if (!baseNote.startsWith(rootClass) || base < minMidi) {
+      continue;
+    }
+
+    let currentMidi = base;
+    const voiced = [];
+
+    for (const degree of pattern) {
+      const pitchClass = pitchClasses[degree];
+
+      let found = false;
+      for (let midi = currentMidi; midi <= maxMidi; midi++) {
+        const note = Tone.Frequency(midi, 'midi').toNote();
+        if (note.startsWith(pitchClass) && midi >= minMidi) {
+          voiced.push(note);
+          currentMidi = midi + 1;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) break;
+    }
+
+    if (voiced.length === pattern.length) {
+      return voiced;
+    }
+  }
+
+  return notes; // fallback
 };

@@ -21,17 +21,20 @@ export const loadPianoSound = async () => {
 // Drone
 
 export const playDrone = (notes) => {
-  stopDrone(); // Ensure only one drone is active
+  stopDrone();
   const arr = Array.isArray(notes) ? notes : [notes];
   arr.forEach(note => {
     synth.triggerAttack(note, Tone.now());
     droneNotes.add(note);
   });
+  console.log('[playDrone] Triggered:', arr);
 };
 
 export const stopDrone = () => {
   if (droneNotes.size > 0) {
-    synth.triggerRelease(Array.from(droneNotes), Tone.now());
+    const toStop = Array.from(droneNotes);
+    synth.triggerRelease(toStop, Tone.now());
+    console.log('[stopDrone] Released:', toStop);
     droneNotes.clear();
   }
 };
@@ -39,17 +42,20 @@ export const stopDrone = () => {
 // Chord
 
 export const playChord = (notes) => {
-  stopChord(); // Stop previous chord
+  stopChord();
   const arr = Array.isArray(notes) ? notes : [notes];
   arr.forEach(note => {
     synth.triggerAttack(note, Tone.now());
     chordNotes.add(note);
   });
+  console.log('[playChord] Triggered:', arr);
 };
 
 export const stopChord = () => {
   if (chordNotes.size > 0) {
-    synth.triggerRelease(Array.from(chordNotes), Tone.now());
+    const toStop = Array.from(chordNotes);
+    synth.triggerRelease(toStop, Tone.now());
+    console.log('[stopChord] Released:', toStop);
     chordNotes.clear();
   }
 };
