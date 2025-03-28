@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import {
   playChord,
   stopChord,
-  loadPianoSound
+  playBass,
+  stopBass,
+  stopAll,
+  loadPianoSound,
 } from '../audio/playAudio';
 import {
   generateChordProgression,
@@ -24,29 +27,52 @@ function ChordProgressionTrainer() {
   const [includeBass, setIncludeBass] = useState(false);
   const [randomizeKey, setRandomizeKey] = useState(false);
   const [voicingStyle, setVoicingStyle] = useState('triad');
+  const [enableRhythm, setEnableRhythm] = useState(false);
+  const [rhythmPattern, setRhythmPattern] = useState('d.du.udu');
+  const [bassPattern, setBassPattern] = useState('d.......');
+  const [strumGapMs, setStrumGapMs] = useState(30);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const playProgressionAtBpm = async (prog, bpm) => {
-    const delayMs = (60 / bpm) * 1000;
+    const tickMs = (60 / bpm / 2) * 1000;
 
-    stopChord(); // stop any lingering chord before starting
+    setIsPlaying(true);
 
     for (let i = 0; i < prog.length; i++) {
       const chord = prog[i];
+      stopChord();
+      stopBass();
+
+      const chordNotes = chord.voicedNotes || chord.notes;
+      const bassNote = includeBass ? `${chord.rootNote}1` : null;
+
+      const chordPattern = enableRhythm ? rhythmPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
+      const bassRhythm = enableRhythm ? bassPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
+
+      for (let step = 0; step < 8; step++) {
+        const c = chordPattern[step];
+        const b = bassRhythm[step];
+
+        if (c === 'd') playChord(chordNotes, 'down', strumGapMs);
+        else if (c === 'u') playChord(chordNotes, 'up', strumGapMs);
+        else if (c === 'x') stopChord();
+
+        if (b === 'd' && bassNote) playBass(bassNote);
+        else if (b === 'x') stopBass();
+
+        await new Promise(res => setTimeout(res, tickMs));
+      }
 
       stopChord();
-
-      const bass = includeBass ? [`${chord.rootNote}1`] : [];
-      const notesToPlay = chord.voicedNotes || chord.notes;
-
-      playChord([...bass, ...notesToPlay]);
-      await new Promise(res => setTimeout(res, delayMs));
-      stopChord();
+      stopBass();
     }
 
-    stopChord();
+    stopAll();
+    setIsPlaying(false);
   };
 
   const handlePlayProgression = async () => {
+    if (isPlaying) return;
     await Tone.start();
     await loadPianoSound();
 
@@ -83,11 +109,10 @@ function ChordProgressionTrainer() {
   };
 
   const handleRepeat = async () => {
-    if (progression.length > 0) {
-      await Tone.start();
-      await loadPianoSound();
-      await playProgressionAtBpm(progression, bpm);
-    }
+    if (progression.length === 0 || isPlaying) return;
+    await Tone.start();
+    await loadPianoSound();
+    await playProgressionAtBpm(progression, bpm);
   };
 
   const handleGuessChange = (index, value) => {
@@ -168,6 +193,62 @@ function ChordProgressionTrainer() {
         <label>
           <input
             type="checkbox"
+            checked={enableRhythm}
+            onChange={(e) => setEnableRhythm(e.target.checked)}
+          />
+          Enable Rhythm
+        </label>
+
+        <input
+          type="text"
+          value={rhythmPattern}
+          onChange={(e) => setRhythmPattern(e.target.value)}
+          disabled={!enableRhythm}
+          style={{ marginLeft: '0.5em', width: '120px' }}
+        />
+        <span style={{ marginLeft: '0.5em', fontSize: '0.9em', fontStyle: 'italic' }}>
+          (8 chars: d/u/x/.)
+        </span>
+      </div>
+
+      {enableRhythm && (
+        <div style={{ marginTop: '1em' }}>
+          <label>
+            Bass Rhythm:
+            <input
+              type="text"
+              value={bassPattern}
+              onChange={(e) => setBassPattern(e.target.value)}
+              style={{ marginLeft: '0.5em', width: '120px' }}
+            />
+          </label>
+          <span style={{ marginLeft: '0.5em', fontSize: '0.9em', fontStyle: 'italic' }}>
+            (8 chars: d/x/.)
+          </span>
+        </div>
+      )}
+
+      <div style={{ marginTop: '1em' }}>
+        <label>
+          Strum Gap (ms): 
+          <input
+            type="number"
+            min="0"
+            max="150"
+            value={strumGapMs}
+            onChange={(e) => setStrumGapMs(parseInt(e.target.value, 10))}
+            style={{ marginLeft: '0.5em', width: '60px' }}
+          />
+        </label>
+        <span style={{ marginLeft: '0.5em', fontSize: '0.9em', fontStyle: 'italic' }}>
+          (0 = block chord)
+        </span>
+      </div>
+
+      <div style={{ marginTop: '1em' }}>
+        <label>
+          <input
+            type="checkbox"
             checked={randomizeKey}
             onChange={(e) => setRandomizeKey(e.target.checked)}
           />
@@ -176,8 +257,12 @@ function ChordProgressionTrainer() {
       </div>
 
       <div style={{ marginTop: '1.5em' }}>
-        <button onClick={handlePlayProgression}>Play Progression</button>
-        <button onClick={handleRepeat} disabled={progression.length === 0}>Repeat</button>
+        <button onClick={handlePlayProgression} disabled={isPlaying}>
+          Play Progression
+        </button>
+        <button onClick={handleRepeat} disabled={progression.length === 0 || isPlaying}>
+          Repeat
+        </button>
       </div>
 
       {progression.length > 0 && (
@@ -200,9 +285,7 @@ function ChordProgressionTrainer() {
 
           <button onClick={handleSubmitGuess}>Submit Guess</button>
 
-          {feedback && (
-            <div style={{ marginTop: '1em' }}>{feedback}</div>
-          )}
+          {feedback && <div style={{ marginTop: '1em' }}>{feedback}</div>}
 
           {!feedback.startsWith('✅') && (
             <button style={{ marginTop: '1em' }} onClick={() => setRevealAnswer(true)}>
