@@ -43,7 +43,33 @@ function ChordProgressionTrainer() {
       stopBass(); // still need to manually stop bass
   
       const chordNotes = chord.voicedNotes || chord.notes;
-      const bassNote = includeBass ? `${chord.rootNote}1` : null;
+
+
+      const getBassNoteInRange = (rootNote) => {
+        const minMidi = Tone.Frequency('B0').toMidi();
+        const maxMidi = Tone.Frequency('A2').toMidi();
+      
+        // Check octaves 0 through 5 (arbitrary safe range)
+        const validOctaves = [];
+      
+        for (let octave = 0; octave <= 5; octave++) {
+          const note = `${rootNote}${octave}`;
+          const midi = Tone.Frequency(note).toMidi();
+      
+          if (midi >= minMidi && midi <= maxMidi) {
+            validOctaves.push(octave);
+          }
+        }
+      
+        if (validOctaves.length === 0) {
+          return `${rootNote}2`; // fallback
+        }
+      
+        const chosenOctave = validOctaves[Math.floor(Math.random() * validOctaves.length)];
+        return `${rootNote}${chosenOctave}`;
+      };
+ 
+      const bassNote = includeBass ? getBassNoteInRange(chord.rootNote) : null;
   
       const chordPattern = enableRhythm ? rhythmPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
       const bassPatternStr = enableRhythm ? bassPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
