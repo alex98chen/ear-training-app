@@ -69,7 +69,7 @@ function ChordProgressionTrainer() {
         const chordPattern = enableRhythm ? rhythmPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
         const bassPatternStr = enableRhythm ? bassPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
 
-        for (let step = 0; step < 8; step++) {
+        for (let step = 0; step < 8 && loopProgressionRef.current; step++) {
           const c = chordPattern[step];
           const b = bassPatternStr[step];
 
@@ -284,7 +284,7 @@ function ChordProgressionTrainer() {
       <div style={{ marginTop: '1.5em' }}>
         <button onClick={handlePlayProgression} disabled={isPlaying}>Play Progression</button>
         <button onClick={handleRepeat} disabled={progression.length === 0 || isPlaying}>Repeat</button>
-        <button onClick={handleStopLoop}>Stop At End of This Loop</button>
+        <button onClick={handleStopLoop}>Stop</button>
       </div>
 
       {currentChordIndex !== null && (
