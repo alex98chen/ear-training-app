@@ -299,7 +299,7 @@ function ChordProgressionTrainer() {
 
       <div style={{ marginTop: '1.5em' }}>
         <button onClick={handlePlayProgression} disabled={isPlaying}>
-          Play Progression
+          Play New Progression
         </button>
         <button onClick={handleRepeat} disabled={progression.length === 0 || isPlaying}>
           Repeat
