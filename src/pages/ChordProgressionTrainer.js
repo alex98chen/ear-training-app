@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   playChord,
   playBass,
@@ -31,86 +31,77 @@ function ChordProgressionTrainer() {
   const [bassPattern, setBassPattern] = useState('d.......');
   const [strumGapMs, setStrumGapMs] = useState(30);
   const [isPlaying, setIsPlaying] = useState(false);
+  const loopProgressionRef = useRef(false);
+  const [currentChordIndex, setCurrentChordIndex] = useState(null);
 
-    
-  const playProgressionAtBpm = async (prog, bpm) => {
-    const tickMs = (60 / bpm / 2) * 1000; // 8th note
-  
-    setIsPlaying(true);
-  
-    for (let i = 0; i < prog.length; i++) {
-      const chord = prog[i];
-      stopBass(); // still need to manually stop bass
-  
-      const chordNotes = chord.voicedNotes || chord.notes;
+  const getBassNoteInRange = (rootNote) => {
+    const minMidi = Tone.Frequency('B0').toMidi();
+    const maxMidi = Tone.Frequency('A2').toMidi();
 
-
-      const getBassNoteInRange = (rootNote) => {
-        const minMidi = Tone.Frequency('B0').toMidi();
-        const maxMidi = Tone.Frequency('A2').toMidi();
-      
-        // Check octaves 0 through 5 (arbitrary safe range)
-        const validOctaves = [];
-      
-        for (let octave = 0; octave <= 5; octave++) {
-          const note = `${rootNote}${octave}`;
-          const midi = Tone.Frequency(note).toMidi();
-      
-          if (midi >= minMidi && midi <= maxMidi) {
-            validOctaves.push(octave);
-          }
-        }
-      
-        if (validOctaves.length === 0) {
-          return `${rootNote}2`; // fallback
-        }
-      
-        const chosenOctave = validOctaves[Math.floor(Math.random() * validOctaves.length)];
-        return `${rootNote}${chosenOctave}`;
-      };
- 
-      const bassNote = includeBass ? getBassNoteInRange(chord.rootNote) : null;
-  
-      const chordPattern = enableRhythm ? rhythmPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
-      const bassPatternStr = enableRhythm ? bassPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
-  
-      for (let step = 0; step < 8; step++) {
-        const c = chordPattern[step];
-        const b = bassPatternStr[step];
-  
-  
-        // Trigger new chord
-        if (c === 'd' || c === 'u') {
-          const direction = c === 'd' ? 'down' : 'up';
-  
-          // Count how many dots follow this to know how long to ring
-          let sustain = 0;
-          for (let j = step + 1; j < 8; j++) {
-            if (chordPattern[j] === '.') sustain++;
-            else break;
-          }
-  
-          const durationMs = (1 + sustain) * tickMs;
-          playChord(chordNotes, direction, strumGapMs, durationMs);
-        }
-  
-        // Handle bass
-        if ((b === 'd' || b === 'u') && bassNote) {
-          playBass(bassNote, tickMs);
-        } else if (b === 'x') {
-          stopBass();
-        }
-  
-        await new Promise(res => setTimeout(res, tickMs));
+    const validOctaves = [];
+    for (let octave = 0; octave <= 5; octave++) {
+      const note = `${rootNote}${octave}`;
+      const midi = Tone.Frequency(note).toMidi();
+      if (midi >= minMidi && midi <= maxMidi) {
+        validOctaves.push(octave);
       }
-  
-      stopBass(); // explicitly stop bass between chords
     }
-  
+
+    if (validOctaves.length === 0) return `${rootNote}2`; // fallback
+    const chosenOctave = validOctaves[Math.floor(Math.random() * validOctaves.length)];
+    return `${rootNote}${chosenOctave}`;
+  };
+
+  const playProgressionAtBpm = async (prog, bpm) => {
+    const tickMs = (60 / bpm / 2) * 1000;
+    setIsPlaying(true);
+    loopProgressionRef.current = true;
+
+    do {
+      for (let i = 0; i < prog.length; i++) {
+        setCurrentChordIndex(i);
+        const chord = prog[i];
+        stopBass();
+
+        const chordNotes = chord.voicedNotes || chord.notes;
+        const bassNote = includeBass ? getBassNoteInRange(chord.rootNote) : null;
+
+        const chordPattern = enableRhythm ? rhythmPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
+        const bassPatternStr = enableRhythm ? bassPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
+
+        for (let step = 0; step < 8; step++) {
+          const c = chordPattern[step];
+          const b = bassPatternStr[step];
+
+          if (c === 'd' || c === 'u') {
+            const direction = c === 'd' ? 'down' : 'up';
+            let sustain = 0;
+            for (let j = step + 1; j < 8; j++) {
+              if (chordPattern[j] === '.') sustain++;
+              else break;
+            }
+            const durationMs = (1 + sustain) * tickMs;
+            playChord(chordNotes, direction, strumGapMs, durationMs);
+          }
+
+          if ((b === 'd' || b === 'u') && bassNote) {
+            playBass(bassNote, tickMs);
+          } else if (b === 'x') {
+            stopBass();
+          }
+
+          await new Promise(res => setTimeout(res, tickMs));
+        }
+
+        stopBass();
+        console.log('[Loop] loopProgressionRef:', loopProgressionRef.current);
+      }
+    } while (loopProgressionRef.current);
+
+    setCurrentChordIndex(null);
     stopAll();
     setIsPlaying(false);
   };
-
 
   const handlePlayProgression = async () => {
     if (isPlaying) return;
@@ -124,7 +115,6 @@ function ChordProgressionTrainer() {
     setKey(selectedKey);
 
     let newProgression = generateChordProgression(selectedKey, 4);
-
     newProgression = newProgression.map(chord => {
       let voicedNotes = chord.notes;
       if (voicingStyle === 'inversion') {
@@ -154,6 +144,10 @@ function ChordProgressionTrainer() {
     await Tone.start();
     await loadPianoSound();
     await playProgressionAtBpm(progression, bpm);
+  };
+
+  const handleStopLoop = () => {
+    loopProgressionRef.current = false;
   };
 
   const handleGuessChange = (index, value) => {
@@ -239,7 +233,6 @@ function ChordProgressionTrainer() {
           />
           Enable Rhythm
         </label>
-
         <input
           type="text"
           value={rhythmPattern}
@@ -247,9 +240,6 @@ function ChordProgressionTrainer() {
           disabled={!enableRhythm}
           style={{ marginLeft: '0.5em', width: '120px' }}
         />
-        <span style={{ marginLeft: '0.5em', fontSize: '0.9em', fontStyle: 'italic' }}>
-          (8 chars: d/u/x/.)
-        </span>
       </div>
 
       {enableRhythm && (
@@ -263,15 +253,12 @@ function ChordProgressionTrainer() {
               style={{ marginLeft: '0.5em', width: '120px' }}
             />
           </label>
-          <span style={{ marginLeft: '0.5em', fontSize: '0.9em', fontStyle: 'italic' }}>
-            (8 chars: d/x/.)
-          </span>
         </div>
       )}
 
       <div style={{ marginTop: '1em' }}>
         <label>
-          Strum Gap (ms): 
+          Strum Gap (ms):
           <input
             type="number"
             min="0"
@@ -281,9 +268,6 @@ function ChordProgressionTrainer() {
             style={{ marginLeft: '0.5em', width: '60px' }}
           />
         </label>
-        <span style={{ marginLeft: '0.5em', fontSize: '0.9em', fontStyle: 'italic' }}>
-          (0 = block chord)
-        </span>
       </div>
 
       <div style={{ marginTop: '1em' }}>
@@ -298,13 +282,16 @@ function ChordProgressionTrainer() {
       </div>
 
       <div style={{ marginTop: '1.5em' }}>
-        <button onClick={handlePlayProgression} disabled={isPlaying}>
-          Play New Progression
-        </button>
-        <button onClick={handleRepeat} disabled={progression.length === 0 || isPlaying}>
-          Repeat
-        </button>
+        <button onClick={handlePlayProgression} disabled={isPlaying}>Play Progression</button>
+        <button onClick={handleRepeat} disabled={progression.length === 0 || isPlaying}>Repeat</button>
+        <button onClick={handleStopLoop}>Stop At End of This Loop</button>
       </div>
+
+      {currentChordIndex !== null && (
+        <div style={{ marginTop: '1em', fontSize: '1.2em' }}>
+          Now Playing: Chord {currentChordIndex + 1}
+        </div>
+      )}
 
       {progression.length > 0 && (
         <div style={{ marginTop: '2em' }}>
