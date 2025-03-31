@@ -9,7 +9,8 @@ import {
 import {
   generateChordProgression,
   getInversionWithOctaves,
-  getGuitarVoicing
+  getGuitarVoicing,
+  getVoicing
 } from '../utils/musicTheory';
 import * as Tone from 'tone';
 
@@ -66,34 +67,45 @@ function ChordProgressionTrainer() {
         const chordNotes = chord.voicedNotes || chord.notes;
         const bassNote = includeBass ? getBassNoteInRange(chord.rootNote) : null;
 
-        const chordPattern = enableRhythm ? rhythmPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
-        const bassPatternStr = enableRhythm ? bassPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
-
-        for (let step = 0; step < 8 && loopProgressionRef.current; step++) {
-          const c = chordPattern[step];
-          const b = bassPatternStr[step];
-
-          if (c === 'd' || c === 'u') {
-            const direction = c === 'd' ? 'down' : 'up';
-            let sustain = 0;
-            for (let j = step + 1; j < 8; j++) {
-              if (chordPattern[j] === '.') sustain++;
-              else break;
+        if (voicingStyle === 'arpeggio') {
+          // For arpeggio, play each note as a quarter note
+          for (let noteIndex = 0; noteIndex < chordNotes.length && loopProgressionRef.current; noteIndex++) {
+            playChord([chordNotes[noteIndex]], 'down', 0, tickMs * 2);
+            if (bassNote && noteIndex === 0) {
+              playBass(bassNote, tickMs * 2);
             }
-            const durationMs = (1 + sustain) * tickMs;
-            playChord(chordNotes, direction, strumGapMs, durationMs);
+            await new Promise(res => setTimeout(res, tickMs * 2));
           }
+          stopBass();
+        } else {
+          const chordPattern = enableRhythm ? rhythmPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
+          const bassPatternStr = enableRhythm ? bassPattern.padEnd(8, '.').slice(0, 8) : 'd.......';
 
-          if ((b === 'd' || b === 'u') && bassNote) {
-            playBass(bassNote, tickMs);
-          } else if (b === 'x') {
-            stopBass();
+          for (let step = 0; step < 8 && loopProgressionRef.current; step++) {
+            const c = chordPattern[step];
+            const b = bassPatternStr[step];
+
+            if (c === 'd' || c === 'u') {
+              const direction = c === 'd' ? 'down' : 'up';
+              let sustain = 0;
+              for (let j = step + 1; j < 8; j++) {
+                if (chordPattern[j] === '.') sustain++;
+                else break;
+              }
+              const durationMs = (1 + sustain) * tickMs;
+              playChord(chordNotes, direction, strumGapMs, durationMs);
+            }
+
+            if ((b === 'd' || b === 'u') && bassNote) {
+              playBass(bassNote, tickMs);
+            } else if (b === 'x') {
+              stopBass();
+            }
+
+            await new Promise(res => setTimeout(res, tickMs));
           }
-
-          await new Promise(res => setTimeout(res, tickMs));
+          stopBass();
         }
-
-        stopBass();
         console.log('[Loop] loopProgressionRef:', loopProgressionRef.current);
       }
     } while (loopProgressionRef.current);
@@ -120,8 +132,8 @@ function ChordProgressionTrainer() {
       if (voicingStyle === 'inversion') {
         const inversion = Math.floor(Math.random() * 3);
         voicedNotes = getInversionWithOctaves(chord.notes, inversion);
-      } else if (voicingStyle === 'guitar') {
-        voicedNotes = getGuitarVoicing(chord.notes);
+      } else if (voicingStyle === 'guitar' || voicingStyle === 'arpeggio') {
+        voicedNotes = getVoicing(chord.notes, voicingStyle);
       }
       return { ...chord, voicedNotes };
     });
@@ -209,6 +221,7 @@ function ChordProgressionTrainer() {
             <option value="triad">Triads</option>
             <option value="inversion">Inversions</option>
             <option value="guitar">Guitar Voicing</option>
+            <option value="arpeggio">Arpeggio</option>
           </select>
         </label>
       </div>

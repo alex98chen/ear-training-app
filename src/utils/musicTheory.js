@@ -145,3 +145,22 @@ export const getGuitarVoicing = (notes) => {
 
   return notes; // fallback
 };
+
+export const getArpeggio = (notes) => {
+  // Shuffle the notes randomly
+  const shuffledNotes = [...notes].sort(() => Math.random() - 0.5);
+  
+  // Randomly select one note to repeat
+  const repeatIndex = Math.floor(Math.random() * shuffledNotes.length);
+  const arpeggio = [...shuffledNotes, shuffledNotes[repeatIndex]];
+
+  // Shuffle the arpeggio to randomize the position of the repeated note
+  return arpeggio.sort(() => Math.random() - 0.5);
+};
+
+export const getVoicing = (notes, style = 'guitar') => {
+  if (style === 'arpeggio') {
+    return getArpeggio(notes);
+  }
+  return getGuitarVoicing(notes);
+};
