@@ -36,7 +36,7 @@ function ChordProgressionTrainer() {
   const [currentChordIndex, setCurrentChordIndex] = useState(null);
 
   const getBassNoteInRange = (rootNote) => {
-    const minMidi = Tone.Frequency('B0').toMidi();
+    const minMidi = Tone.Frequency('E1').toMidi();
     const maxMidi = Tone.Frequency('A2').toMidi();
 
     const validOctaves = [];
