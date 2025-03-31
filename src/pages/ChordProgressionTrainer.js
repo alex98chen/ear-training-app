@@ -127,13 +127,15 @@ function ChordProgressionTrainer() {
     setKey(selectedKey);
 
     let newProgression = generateChordProgression(selectedKey, 4);
+    let previousRoot = null;
     newProgression = newProgression.map(chord => {
       let voicedNotes = chord.notes;
       if (voicingStyle === 'inversion') {
         const inversion = Math.floor(Math.random() * 3);
         voicedNotes = getInversionWithOctaves(chord.notes, inversion);
-      } else if (voicingStyle === 'guitar' || voicingStyle === 'arpeggio') {
-        voicedNotes = getVoicing(chord.notes, voicingStyle);
+      } else if (voicingStyle === 'guitar' || voicingStyle === 'arpeggio' || voicingStyle === 'triad') {
+        voicedNotes = getVoicing(chord.notes, voicingStyle, previousRoot);
+        previousRoot = voicedNotes[0]; // Store the root note for next chord
       }
       return { ...chord, voicedNotes };
     });

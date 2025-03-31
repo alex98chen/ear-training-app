@@ -158,9 +158,85 @@ export const getArpeggio = (notes) => {
   return arpeggio.sort(() => Math.random() - 0.5);
 };
 
-export const getVoicing = (notes, style = 'guitar') => {
+export const getTriadVoicing = (notes, previousRoot = null) => {
+  const rootNote = notes[0];
+  const thirdNote = notes[1];
+  const fifthNote = notes[2];
+
+  // Get the pitch class (note without octave)
+  const rootClass = rootNote.slice(0, -1);
+  
+  // Define valid range for root note
+  const minMidi = Tone.Frequency('E2').toMidi();
+  const maxMidi = Tone.Frequency('E4').toMidi();
+  
+  // Find valid octaves for this root note
+  const validOctaves = [];
+  for (let octave = 2; octave <= 4; octave++) {
+    const testNote = `${rootClass}${octave}`;
+    const testMidi = Tone.Frequency(testNote).toMidi();
+    if (testMidi >= minMidi && testMidi <= maxMidi) {
+      validOctaves.push(octave);
+    }
+  }
+
+  let bestRootOctave;
+  if (previousRoot && validOctaves.length > 0) {
+    const prevMidi = Tone.Frequency(previousRoot).toMidi();
+    
+    // Filter octaves to those within an octave (12 semitones) of previous root
+    const nearbyOctaves = validOctaves.filter(octave => {
+      const testNote = `${rootClass}${octave}`;
+      const testMidi = Tone.Frequency(testNote).toMidi();
+      const distance = Math.abs(testMidi - prevMidi);
+      return distance <= 12;
+    });
+
+    // If we have nearby octaves, randomly choose from them
+    if (nearbyOctaves.length > 0) {
+      bestRootOctave = nearbyOctaves[Math.floor(Math.random() * nearbyOctaves.length)];
+    } else {
+      // If no nearby octaves, choose from all valid octaves
+      bestRootOctave = validOctaves[Math.floor(Math.random() * validOctaves.length)];
+    }
+  } else {
+    // For first chord, randomly choose from any valid octave
+    bestRootOctave = validOctaves[Math.floor(Math.random() * validOctaves.length)];
+  }
+
+  // If no valid octaves found (shouldn't happen), fallback to octave 3
+  if (!bestRootOctave) bestRootOctave = 3;
+
+  // Create the root note in the chosen octave
+  const voicedRoot = `${rootClass}${bestRootOctave}`;
+  const rootMidi = Tone.Frequency(voicedRoot).toMidi();
+
+  // Voice the third and fifth above the root
+  let thirdMidi = Tone.Frequency(`${thirdNote.slice(0, -1)}${bestRootOctave}`).toMidi();
+  let fifthMidi = Tone.Frequency(`${fifthNote.slice(0, -1)}${bestRootOctave}`).toMidi();
+
+  // If third is below root, raise it an octave
+  while (thirdMidi <= rootMidi) {
+    thirdMidi += 12;
+  }
+
+  // If fifth is below third, raise it an octave
+  while (fifthMidi <= thirdMidi) {
+    fifthMidi += 12;
+  }
+
+  return [
+    voicedRoot,
+    Tone.Frequency(thirdMidi, 'midi').toNote(),
+    Tone.Frequency(fifthMidi, 'midi').toNote()
+  ];
+};
+
+export const getVoicing = (notes, style = 'triad', previousRoot = null) => {
   if (style === 'arpeggio') {
     return getArpeggio(notes);
+  } else if (style === 'triad') {
+    return getTriadVoicing(notes, previousRoot);
   }
   return getGuitarVoicing(notes);
 };
