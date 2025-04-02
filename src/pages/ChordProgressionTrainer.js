@@ -9,7 +9,6 @@ import {
 import {
   generateChordProgression,
   getInversionWithOctaves,
-  getGuitarVoicing,
   getVoicing
 } from '../utils/musicTheory';
 import * as Tone from 'tone';
